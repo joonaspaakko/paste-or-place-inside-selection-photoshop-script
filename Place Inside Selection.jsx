@@ -19,7 +19,7 @@ var hasSelection = selectionExists();
 var tempChannelName = 'Temp Channel - 0123456789';
 
 // Writes one history state....
-app.activeDocument.suspendHistory("Place Image In Selection.jsx", "init()");
+app.activeDocument.suspendHistory("Place Inside Selection.jsx", "init()");
 
 function init() {
   
