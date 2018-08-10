@@ -7,8 +7,10 @@
 
 // Changelog:
 // V.0.1.
-// - Written for PS CC 2018
 // - First version
+// - Written for PS CC 2018
+// - Images are placed as Smart Objects and resized to the size of your selection.
+// - Does not respect the original size of your image in the sense that if you place your image into a selection that is bigger than the image, it will ruthlessly upsize it the size of the selection. 
 
 var method = null;
 var fit_or_fill = null;
