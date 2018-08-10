@@ -394,7 +394,7 @@ function selectLayer( direction ) {
 
 function dialog() {
   
-  var dialog = new Window ("dialog", "Place Into Selection.jsx");
+  var dialog = new Window ("dialog", "Place Inside Selection.jsx");
   dialog.orientation = "column";
   dialog.alignChildren = ["center", "center"];
   dialog.margins = 25;
