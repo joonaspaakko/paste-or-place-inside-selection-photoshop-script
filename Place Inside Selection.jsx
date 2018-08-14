@@ -2,8 +2,9 @@
 // Version: 0.1. 
 
 // Place or paste image inside a selection. If there is no selection, the bounding box of the active layer is used.
+// Example gifs: https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e#gistcomment-2678485
 
-// https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e
+// Gist: https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e
 
 // Changelog:
 // V.0.1.
