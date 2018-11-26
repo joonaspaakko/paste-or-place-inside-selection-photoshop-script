@@ -2,7 +2,8 @@
 // https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e
 // Version: 0.2.
 
-// Place or paste image inside a selection. If a selection exists, a new layer is created automatically. If there is no selection, the new image is placed into clipping mask with the currently active layer. Or if the active layer is part of a clipping mask, the new image is just added at the top of the stack. 
+// Place or paste image inside a selection. If a selection exists, a new layer is created automatically. If there is no selection, the new image forms a clipping mask with the currently active layer. Or if the active layer is part of a clipping mask, the new image is just added at the top of the stack. 
+// Usage examples: https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e#gistcomment-2678485
 
 // Changelog:
 
