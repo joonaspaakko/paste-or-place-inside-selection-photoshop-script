@@ -1,17 +1,22 @@
-// Place Inside Selection.jsx
-// Version: 0.1. 
+// Paste or Place Inside Selection.jsx
+// https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e
+// Version: 0.2.
 
-// Place or paste image inside a selection. If there is no selection, the bounding box of the active layer is used.
-// Example gifs: https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e#gistcomment-2678485
-
-// Gist: https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e
+// Place or paste image inside a selection. If a selection exists, a new layer is created automatically. If there is no selection, the new image is placed into clipping mask with the currently active layer. Or if the active layer is part of a clipping mask, the new image is just added at the top of the stack. 
 
 // Changelog:
-// V.0.1.
+
+// ********* V.0.2. *********
+// - Tested in PS CC 2019
+// - Renewed dialog. Numbers from 1 to 4 can be used as shortcuts.
+// - Space used to trigger paste and enter used to trigger place, but not it's reversed.
+// - Name changed from "Place Inside Selection.jsx" to "Paste or Place Inside Selection.jsx"
+
+// ********* V.0.1. *********
 // - First version
 // - Written for PS CC 2018
 // - Images are placed as Smart Objects and resized to the size of your selection.
-// - Does not respect the original size of your image in the sense that if you place your image into a selection that is bigger than the image, it will ruthlessly upsize it the size of the selection. 
+// - Does not respect the original size of your image in the sense that if you place your image into a selection that is bigger than the image, it will ruthlessly upsize it the size of the selection.
 
 var method = null;
 var fit_or_fill = null;
@@ -24,19 +29,22 @@ app.activeDocument.suspendHistory("Place Inside Selection.jsx", "init()");
 
 function init() {
   
-  // Lets the user decide how to place the image
+  // Place options
   dialog();
   
-  // Is cancel button was pressed, don't continue...
-  if ( method !== 'cancel' ) {
+  
+  // Don't continue if user cancelled using ESC
+  if ( method != null ) {
+    
+    var image;
     
     // If PLACE was the chosen method, open up "browse" dialog to find a file to place.
     if ( method === 'place' ) {
-      var image = File.openDialog( 'Find the image you want to place...' );
+      image = File.openDialog( 'Open input image...' );
     }
     // If PASTE was the chosen method, test clipboard...
     else {
-      var image = "clipboard";
+      image = "clipboard";
       clipboardEmpty = testClipboard();
     }
     
@@ -44,9 +52,8 @@ function init() {
     if ( image != null && !clipboardEmpty ) {
       main( image );
     }
-    
-    if ( clipboardEmpty ) {
-      alert( 'Clipboard Empty \n Try again...' );
+    else {
+      alert( 'Paste failed \nMake sure you have an image in your clipboard and try again...' );
     }
     
   }
@@ -61,7 +68,6 @@ function main( image ) {
   
   app.preferences.rulerUnits = Units.PIXELS;
   
-  // Cache the target "area"
   // Could be a layer or a selection
   var target = getTargetBounds( doc, activeLayer );
   
@@ -76,14 +82,12 @@ function main( image ) {
     placeIMG( doc, activeLayer, image, target.width, target.height );
   }
   
-  // A lot of the magic happens here
   resizeIMG( doc.activeLayer, target.width, target.height );
-  
   // align( [layerToAlign], [targetBounds] );
   align( doc.activeLayer, target.bounds );
   
   // Wrap it up....
-  // When there is a selection, we just add a Layer Mask to the image.
+  // When there is a selection, we add a Layer Mask to the image.
   if ( hasSelection ) {
     
     loadSelection( doc );
@@ -284,10 +288,10 @@ function align( imageLayer, targetBounds ) {
   };
   var target = {
     offset: {
-        top: targetBounds[1].value,
-        right: targetBounds[2].value,
-        bottom: targetBounds[3].value,
-        left: targetBounds[0].value,
+      top: targetBounds[1].value,
+      right: targetBounds[2].value,
+      bottom: targetBounds[3].value,
+      left: targetBounds[0].value,
     },
   };
   
@@ -392,69 +396,83 @@ function selectLayer( direction ) {
 
 }
 
-
 function dialog() {
   
-  var dialog = new Window ("dialog", "Place Inside Selection.jsx");
-  dialog.orientation = "column";
-  dialog.alignChildren = ["center", "center"];
-  dialog.margins = 25;
+	/*
+	Code for Import https://scriptui.joonas.me — (Triple click to select):
+	{"items":{"item-0":{"id":0,"type":"Dialog","parentId":false,"style":{"text":"Place into selection.jsx","preferredSize":[0,0],"margins":24,"orientation":"column","spacing":10,"alignChildren":["center","top"]}},"item-1":{"id":1,"type":"Button","parentId":0,"style":{"text":"2. Paste / Fit","justify":"center","preferredSize":[0,0],"alignment":null}},"item-2":{"id":2,"type":"Button","parentId":0,"style":{"text":"1. Paste / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-3":{"id":3,"type":"Divider","parentId":0,"style":false},"item-4":{"id":4,"type":"Button","parentId":0,"style":{"text":"3. Place / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-5":{"id":5,"type":"Button","parentId":0,"style":{"text":"4. Place / Fit","justify":"center","preferredSize":[0,0],"alignment":null}}},"order":[0,2,1,3,4,5],"activeId":1}
+	*/
 
-  var top = dialog.add("panel");
-  top.orientation = "row";
-  top.alignChildren = "center";
-  top.margins = 35;
-  var fill = top.add ("radiobutton", undefined, "Fill");
-  var fit = top.add ("radiobutton", undefined, "Fit");
-  fill.value = true;
+	// DIALOG
+	// ======
+	var dialog = new Window("dialog");
+	    dialog.text = "Place into selection.jsx";
+	    dialog.orientation = "column";
+	    dialog.alignChildren = ["center","top"];
+	    dialog.spacing = 10;
+	    dialog.margins = 24;
 
-  var bottom = dialog.add("panel");
-  bottom.orientation = "column";
-  bottom.alignChildren = "center";
-  bottom.margins = 35;
-  var place = bottom.add("button", undefined, "Place", {name: "ok"});
-  place.alignment = ["","bottom"];
-  var paste = bottom.add("button", undefined, "Paste", {name: "Charles"});
-  paste.alignment = ["","bottom"];
-  paste.active = true;
-  var cancel = bottom.add("button", undefined, "Cancel", {name: "cancel"});
-  cancel.alignment = ["","bottom"];
+	var button1 = dialog.add("button", undefined, 'pasteFill', {name: "ok"});
+	    button1.text = "1. Paste / Fill";
+	    button1.justify = "center";
 
-  dialog.addEventListener ("keydown", function ( key ) {
-    if ( key.keyName == 1 || key.keyName == 'Left' || key.keyName == 'A' ) {
-		  fill.value = true;
+	var button2 = dialog.add("button", undefined, 'pasteFit', {name: "ok1"});
+	    button2.text = "2. Paste / Fit";
+	    button2.justify = "center";
+
+	var divider1 = dialog.add("panel");
+	    divider1.alignment = "fill";
+
+	var button3 = dialog.add("button", undefined, 'placeFill', {name: "ok3"});
+	    button3.text = "3. Place / Fill";
+	    button3.justify = "center";
+      button3.active = true;
+
+	var button4 = dialog.add("button", undefined, 'placeFit', {name: "ok4"});
+	    button4.text = "4. Place / Fit";
+	    button4.justify = "center";
+
+	// CUSTOM EVENTS
+  dialog.addEventListener ("keyup", function( key ) {
+    if ( key.keyName == 1 ) {
+      button1.onClick();
     }
-    else if ( key.keyName == 2 || key.keyName == 'Right' || key.keyName == 'D' ) {
-      fit.value = true;
+    else if ( key.keyName == 2 ) {
+      button2.onClick();
     }
-    else if ( key.keyName == 'Up' || key.keyName == 'W' ) {
-      place.onClick();
+    else if ( key.keyName == 3 ) {
+      button3.onClick();
     }
-    else if ( key.keyName == 'Down' || key.keyName == 'S' ) {
-      paste.onClick();
-    }
-    else if ( key.keyName == 'X' ) {
-      cancel.onClick();
+    else if ( key.keyName == 4 ) {
+      button4.onClick();
     }
   });
-  
-  place.onClick = function () {
-    method = 'place';
-    fit_or_fill = fill.value === true ? 'fill' : 'fit';
-    dialog.close();
-  }
-  
-  paste.onClick = function () {
+	
+  // PASTE FILL
+  button1.onClick = function () {
     method = 'paste';
-    fit_or_fill = fill.value === true ? 'fill' : 'fit';
+    fit_or_fill = 'fill';
     dialog.close();
   }
-  
-  cancel.onClick = function () {
-    method = 'cancel';
+  // PASTE FIT
+  button2.onClick = function () {
+    method = 'paste';
+    fit_or_fill = 'fit';
     dialog.close();
   }
-  
+  // PLACE FILL
+  button3.onClick = function () {
+    method = 'place';
+    fit_or_fill = 'fill';
+    dialog.close();
+  }
+  // PLACE FILL
+  button4.onClick = function () {
+    method = 'place';
+    fit_or_fill = 'fit';
+    dialog.close();
+  }
   
   dialog.show();
+	
 }
