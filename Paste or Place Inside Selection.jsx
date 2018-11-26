@@ -317,6 +317,7 @@ function selectionExists() {
 	
 }
 
+// Returns the base layer in a clipping mask
 function findClippingMask( doc, layer ) {
 	
   // Layer is in a clipping mask...
@@ -339,7 +340,7 @@ function findClippingMask( doc, layer ) {
     return clippingMaskBase;
 		
 	}
-  // Layer is not in a clipping mask
+  // Layer is not in a clipping mask... but it could still be the base layer of a clipping mask
 	else if ( !layer.grouped ) {
 		
     app.runMenuItem( stringIDToTypeID('groupLayersEvent') );
