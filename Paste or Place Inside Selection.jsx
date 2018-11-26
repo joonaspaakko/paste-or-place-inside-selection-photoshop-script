@@ -10,7 +10,7 @@
 // ********* V.0.2. *********
 // - Tested in PS CC 2019
 // - Renewed dialog. Numbers from 1 to 4 can be used as shortcuts.
-// - Space used to trigger paste and enter used to trigger place, but not it's reversed.
+// - Spacebar used to trigger paste and enter used to trigger place, but now it's reversed.
 // - Name changed from "Place Inside Selection.jsx" to "Paste or Place Inside Selection.jsx"
 
 // ********* V.0.1. *********
