@@ -6,8 +6,8 @@ The scripts helps you paste or place images using fit and fill methods.
 
 You got 2 starting points...
 
-1. **[Selection method (gif)](readme-images/active-layer-method.gif):** If you have an active marquee selection in the document, the image is placed inside the selection on a new layer.
-2. **[Active layer method (gif)](readme-images/selection-method.gif):** ...otherwise the image is placed in a new layer and placed in a clipping mask with the active layer.
+1. **[Selection method (gif)](readme-images/selection-method.gif):** If you have an active marquee selection in the document, the image is placed inside the selection on a new layer.
+2. **[Active layer method (gif)](readme-images/active-layer-method.gif):** ...otherwise the image is placed in a new layer and placed in a clipping mask with the active layer.
     - If you want to place inside an existing clipping mask, you can select any layer that is part of that clipping mask. The new image will be placed on top of that stack.
 
 Both of these gifs have an outdated dialog, but otherwise it works just the same. I should make new gifs...
