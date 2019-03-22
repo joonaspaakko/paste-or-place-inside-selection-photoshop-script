@@ -21,7 +21,7 @@ Both of these gifs have an outdated dialog, but otherwise it works just the same
 
 - The script doesn't care if your image has to be upsized. So you have to be aware that if you place a 16x16px icon into a 900x900px area, you're going to have issues with image quality.
     - I have always wanted add a `Don't upsize` option, just haven't got around to adding it. Or I guess it could be called `Only shrink`... or `Don't enlarge`.
-- Right now the `active layer method` doesn't work with the background layer if it's locked. There's no reason why it couldn't work, but since I can unlock the bg layer before running the script or make a selection covering the whole document `Cmd+A`... it hasn't really felt like an important addition.
+- Right now the `active layer method` doesn't work with the background layer if it's locked. There's no reason why it couldn't  be made to work, but since I can unlock the bg layer before running the script or make a selection covering the whole document `Cmd+A`... it hasn't really felt like an important addition.
 - You can paste vector graphics from Illustrator, but it's rasterized on import.
 - Not really an issue, but the fit option is set to clip off a little bit on all sides in order to avoid bleedthrough due to anti-aliasing. So if you're placing icons with fit, you likely want to disable the layer mask (`Shift` click the thumbnail).
 
