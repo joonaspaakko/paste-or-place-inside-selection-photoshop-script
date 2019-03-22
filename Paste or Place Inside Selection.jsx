@@ -1,9 +1,6 @@
 // Paste or Place Inside Selection.jsx
-// https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e
 // Version: 0.2.
-
-// Place or paste image inside a selection. If a selection exists, a new layer is created automatically. If there is no selection, the new image forms a clipping mask with the currently active layer. Or if the active layer is part of a clipping mask, the new image is just added at the top of the stack. 
-// Usage examples: https://gist.github.com/joonaspaakko/e1b67f3762e60200601b6c18dbe4223e#gistcomment-2678485
+// https://github.com/joonaspaakko/paste-or-place-inside-selection-photoshop-script
 
 // Changelog:
 
@@ -402,13 +399,13 @@ function dialog() {
   
 	/*
 	Code for Import https://scriptui.joonas.me — (Triple click to select):
-	{"items":{"item-0":{"id":0,"type":"Dialog","parentId":false,"style":{"text":"Place into selection.jsx","preferredSize":[0,0],"margins":24,"orientation":"column","spacing":10,"alignChildren":["center","top"]}},"item-1":{"id":1,"type":"Button","parentId":0,"style":{"text":"2. Paste / Fit","justify":"center","preferredSize":[0,0],"alignment":null}},"item-2":{"id":2,"type":"Button","parentId":0,"style":{"text":"1. Paste / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-3":{"id":3,"type":"Divider","parentId":0,"style":false},"item-4":{"id":4,"type":"Button","parentId":0,"style":{"text":"3. Place / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-5":{"id":5,"type":"Button","parentId":0,"style":{"text":"4. Place / Fit","justify":"center","preferredSize":[0,0],"alignment":null}}},"order":[0,2,1,3,4,5],"activeId":1}
+	{"items":{"item-0":{"id":0,"type":"Dialog","parentId":false,"style":{"text":"Paste or place inside selection.jsx","preferredSize":[0,0],"margins":24,"orientation":"column","spacing":10,"alignChildren":["center","top"]}},"item-1":{"id":1,"type":"Button","parentId":0,"style":{"text":"2. Paste / Fit","justify":"center","preferredSize":[0,0],"alignment":null}},"item-2":{"id":2,"type":"Button","parentId":0,"style":{"text":"1. Paste / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-3":{"id":3,"type":"Divider","parentId":0,"style":false},"item-4":{"id":4,"type":"Button","parentId":0,"style":{"text":"3. Place / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-5":{"id":5,"type":"Button","parentId":0,"style":{"text":"4. Place / Fit","justify":"center","preferredSize":[0,0],"alignment":null}}},"order":[0,2,1,3,4,5],"activeId":1}
 	*/
 
 	// DIALOG
 	// ======
 	var dialog = new Window("dialog");
-	    dialog.text = "Place into selection.jsx";
+	    dialog.text = "Paste or place inside selection.jsx";
 	    dialog.orientation = "column";
 	    dialog.alignChildren = ["center","top"];
 	    dialog.spacing = 10;
