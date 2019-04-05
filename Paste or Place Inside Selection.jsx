@@ -1,8 +1,21 @@
 // Paste or Place Inside Selection.jsx
-// Version: 0.2.
+// Version: 0.3.
 // https://github.com/joonaspaakko/paste-or-place-inside-selection-photoshop-script
 
 // Changelog:
+
+// ********* V.0.3. *********
+// - Tested in PS CC 2019 (20.0.4)
+// - Added a new option: "Don't upsize past original size"
+// - Now works in all of the _possible_ color modes. I realized that
+//   this script could only be used in RGB color mode due to the way I
+//   deselected temp channel by activating red + green + blue channels.
+// - Fixed a thing where you got a "Paste failed" alert when canceling the open dialog.
+// - Change: Only fill will add extra 2px in to the target
+//   size. It's to account for anti-aliasing / bleedthrough.
+//   I think it doesn't matter as much when fitting.
+// - Change: You no longer need to make a selection before pasting or placing
+//   image on top of it. It's automatically changed into a normal layer.
 
 // ********* V.0.2. *********
 // - Tested in PS CC 2019
@@ -14,10 +27,13 @@
 // - First version
 // - Written for PS CC 2018
 // - Images are placed as Smart Objects and resized to the size of your selection.
-// - Does not respect the original size of your image in the sense that if you place your image into a selection that is bigger than the image, it will ruthlessly upsize it the size of the selection.
+// - Does not respect the original size of your image in the sense
+//   that if you place your image into a selection that is bigger than
+//   the image, it will ruthlessly upsize it the size of the selection.
 
 var method = null;
 var fit_or_fill = null;
+var noUpsize = false;
 var clipboardEmpty = false;
 var hasSelection = selectionExists();
 var tempChannelName = 'Temp Channel - 0123456789';
@@ -30,12 +46,11 @@ function init() {
   // Place options
   dialog();
   
-  
   // Don't continue if user cancelled using ESC
   if ( method != null ) {
     
     var image;
-    
+      
     // If PLACE was the chosen method, open up "browse" dialog to find a file to place.
     if ( method === 'place' ) {
       image = File.openDialog( 'Open input image...' );
@@ -47,10 +62,14 @@ function init() {
     }
     
     // Don't continue if user cancels the "browse" dialog or if the clipboard is empty
-    if ( image != null && !clipboardEmpty ) {
+    if (
+      (image == "clipboard" && !clipboardEmpty) ||
+      (image != undefined && image != null && image != "clipboard")
+    ) {
       main( image );
     }
-    else {
+    
+    if ( clipboardEmpty ) {
       alert( 'Paste failed \nMake sure you have an image in your clipboard and try again...' );
     }
     
@@ -59,12 +78,17 @@ function init() {
 } // init();
 
 function main( image ) {
-
+  
   var doc = app.activeDocument,
 			activeLayer = doc.activeLayer,
       rulerUnits = app.preferences.rulerUnits;
   
   app.preferences.rulerUnits = Units.PIXELS;
+  
+  if ( !hasSelection ) {
+    // Turn background layer into a normal layer
+    if ( doc.activeLayer.isBackgroundLayer ) { doc.activeLayer.isBackgroundLayer = false; }
+  }
   
   // Could be a layer or a selection
   var target = getTargetBounds( doc, activeLayer );
@@ -113,10 +137,17 @@ function main( image ) {
   }
   // When there is no selection, a clipping mask is used and both layers are selected.
   else {
+    
     // When there aren't any existing layers in a clipping mask:
     if ( !doc.activeLayer.grouped ) doc.activeLayer.grouped = true;
+    
   }
 
+  // Select default channels
+  var prevActive = doc.activeLayer;
+  var tempLayer = doc.artLayers.add(); tempLayer.remove();
+  doc.activeLayer = prevActive;
+  
   // Reset ruler units
   app.preferences.rulerUnits = rulerUnits;
   
@@ -133,9 +164,10 @@ function saveSelection( doc ) {
 	tempChannel.kind = ChannelType.SELECTEDAREA;
 	tempChannel.name = tempChannelName;
 	doc.selection.store( channels[ tempChannelName ], SelectionType.REPLACE );
-  // Reselects RGB channels
-  doc.activeChannels = [ channels["Red"], channels["Green"], channels["Blue"] ];
-  doc.selection.deselect();
+  // Select default channels
+  var prevActive = doc.activeLayer;
+  var tempLayer = doc.artLayers.add(); tempLayer.remove();
+  doc.activeLayer = prevActive;
 }
 
 function testClipboard() {
@@ -218,27 +250,60 @@ function placeIMG( doc, activeLayer, image ) {
 function resizeIMG( imageLayer, target_width, target_height ) {
   
   // Small padding to help with anti-aliasing
-  target_width = target_width + 2;
-  target_height = target_height + 2;
+  target_width  = target_width + ( fit_or_fill === 'fill' ? 2 : 0 );
+  target_height = target_height + ( fit_or_fill === 'fill' ? 2 : 0 );
   
   // Round 1#
-  var bounds = imageLayer.boundsNoEffects;
-  var image_width = bounds[2].value - bounds[0].value;
+  var bounds       = imageLayer.boundsNoEffects;
+  var image_width  = bounds[2].value - bounds[0].value;
   var image_height = bounds[3].value - bounds[1].value;
-  var newSize = (100 / image_width) * target_width;
-  imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
+  var newSize      = (100 / image_width) * target_width;
   
-  // Round 2# ...if it is needed
-  var bounds = imageLayer.boundsNoEffects;
-  var image_width = bounds[2].value - bounds[0].value;
-  var image_height = bounds[3].value - bounds[1].value;
+  var longSideImage = image_width > image_height ? image_width : image_height;
+  var longSideTarget = target_width > target_height ? target_width : target_height;
   
-  if (
-    (fit_or_fill === 'fill' && image_height < target_height) ||
-    (fit_or_fill === 'fit' && image_height > target_height)
-  ) {
-    var newSize = (target_height / image_height) * 100;
+  if ( noUpsize && longSideImage > longSideTarget || !noUpsize ) {
+    
     imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
+    
+    // Round 2# ...if it is needed
+    var bounds       = imageLayer.boundsNoEffects;
+    var image_width  = bounds[2].value - bounds[0].value;
+    var image_height = bounds[3].value - bounds[1].value;
+    
+    if (
+      (fit_or_fill === 'fill' && image_height < target_height) ||
+      (fit_or_fill === 'fit' && image_height > target_height)
+    ) {
+      var newSize = (target_height / image_height) * 100;
+      imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
+    }
+    
+  }
+  
+  if ( !noUpsize && longSideImage < longSideTarget ) {
+    
+    // COLOR RED
+		// =======================================================
+		var idsetd = charIDToTypeID( "setd" );
+		    var desc98 = new ActionDescriptor();
+		    var idnull = charIDToTypeID( "null" );
+		        var ref30 = new ActionReference();
+		        var idLyr = charIDToTypeID( "Lyr " );
+		        var idOrdn = charIDToTypeID( "Ordn" );
+		        var idTrgt = charIDToTypeID( "Trgt" );
+		        ref30.putEnumerated( idLyr, idOrdn, idTrgt );
+		    desc98.putReference( idnull, ref30 );
+		    var idT = charIDToTypeID( "T   " );
+		        var desc99 = new ActionDescriptor();
+		        var idClr = charIDToTypeID( "Clr " );
+		        var idClr = charIDToTypeID( "Clr " );
+		        var idRd = charIDToTypeID( "Rd  " );
+		        desc99.putEnumerated( idClr, idClr, idRd );
+		    var idLyr = charIDToTypeID( "Lyr " );
+		    desc98.putObject( idT, idLyr, desc99 );
+		executeAction( idsetd, desc98, DialogModes.NO );
+    
   }
   
 }
@@ -397,81 +462,147 @@ function selectLayer( direction ) {
 
 function dialog() {
   
-	/*
-	Code for Import https://scriptui.joonas.me — (Triple click to select):
-	{"items":{"item-0":{"id":0,"type":"Dialog","parentId":false,"style":{"text":"Paste or place inside selection.jsx","preferredSize":[0,0],"margins":24,"orientation":"column","spacing":10,"alignChildren":["center","top"]}},"item-1":{"id":1,"type":"Button","parentId":0,"style":{"text":"2. Paste / Fit","justify":"center","preferredSize":[0,0],"alignment":null}},"item-2":{"id":2,"type":"Button","parentId":0,"style":{"text":"1. Paste / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-3":{"id":3,"type":"Divider","parentId":0,"style":false},"item-4":{"id":4,"type":"Button","parentId":0,"style":{"text":"3. Place / Fill","justify":"center","preferredSize":[0,0],"alignment":null}},"item-5":{"id":5,"type":"Button","parentId":0,"style":{"text":"4. Place / Fit","justify":"center","preferredSize":[0,0],"alignment":null}}},"order":[0,2,1,3,4,5],"activeId":1}
-	*/
+  /*
+  Code for Import https://scriptui.joonas.me — (Triple click to select):
+  {"items":{"item-0":{"id":0,"type":"Dialog","parentId":false,"style":{"text":"Paste or place inside selection.jsx","preferredSize":[0,0],"margins":30,"orientation":"column","spacing":15,"alignChildren":["fill","top"],"varName":null}},"item-2":{"id":2,"type":"Button","parentId":6,"style":{"text":"1. Fill","justify":"center","preferredSize":[0,0],"alignment":null,"varName":"pasteFill","helpTip":null}},"item-6":{"id":6,"type":"Panel","parentId":17,"style":{"varName":null,"text":"Paste","preferredSize":[0,0],"margins":25,"orientation":"column","spacing":10,"alignChildren":["fill","top"],"alignment":null}},"item-12":{"id":12,"type":"Button","parentId":6,"style":{"text":"2. Fit","justify":"center","preferredSize":[0,0],"alignment":null,"varName":"pasteFit","helpTip":null}},"item-13":{"id":13,"type":"Panel","parentId":17,"style":{"varName":null,"text":"Place","preferredSize":[0,0],"margins":25,"orientation":"column","spacing":10,"alignChildren":["fill","top"],"alignment":null}},"item-14":{"id":14,"type":"Button","parentId":13,"style":{"text":"3. Fill","justify":"center","preferredSize":[0,0],"alignment":null,"varName":"placeFill","helpTip":null}},"item-15":{"id":15,"type":"Button","parentId":13,"style":{"text":"4. Fit","justify":"center","preferredSize":[0,0],"alignment":null,"varName":"placeFit","helpTip":null}},"item-16":{"id":16,"type":"Panel","parentId":0,"style":{"varName":null,"text":"Info","preferredSize":[0,0],"margins":25,"orientation":"column","spacing":10,"alignChildren":["left","top"],"alignment":null}},"item-17":{"id":17,"type":"Group","parentId":0,"style":{"varName":null,"preferredSize":[0,0],"margins":0,"orientation":"row","spacing":20,"alignChildren":["left","fill"],"alignment":null}},"item-18":{"id":18,"type":"StaticText","parentId":16,"style":{"varName":null,"text":"Use number keys as shortcuts \nfor each function. Space toggles\nthe upsizing option.","justify":"left","preferredSize":[0,0],"alignment":null,"helpTip":null}},"item-19":{"id":19,"type":"Panel","parentId":0,"style":{"varName":null,"text":"Options","preferredSize":[0,0],"margins":25,"orientation":"column","spacing":10,"alignChildren":["left","top"],"alignment":null}},"item-20":{"id":20,"type":"Checkbox","parentId":19,"style":{"varName":"noUpsizing","text":"Don't upsize past original size","preferredSize":[0,0],"alignment":null,"helpTip":null}}},"order":[0,17,6,2,12,13,14,15,19,20,16,18],"activeId":18}
+  */
 
-	// DIALOG
-	// ======
-	var dialog = new Window("dialog");
-	    dialog.text = "Paste or place inside selection.jsx";
-	    dialog.orientation = "column";
-	    dialog.alignChildren = ["center","top"];
-	    dialog.spacing = 10;
-	    dialog.margins = 24;
+  // DIALOG
+  // ======
+  var dialog = new Window("dialog");
+      dialog.text = "Paste or place inside selection.jsx";
+      dialog.orientation = "column";
+      dialog.alignChildren = ["fill","top"];
+      dialog.spacing = 15;
+      dialog.margins = 30;
 
-	var button1 = dialog.add("button", undefined, 'pasteFill', {name: "ok"});
-	    button1.text = "1. Paste / Fill";
-	    button1.justify = "center";
+  // GROUP1
+  // ======
+  var group1 = dialog.add("group");
+      group1.orientation = "row";
+      group1.alignChildren = ["left","fill"];
+      group1.spacing = 20;
+      group1.margins = 0;
 
-	var button2 = dialog.add("button", undefined, 'pasteFit', {name: "ok1"});
-	    button2.text = "2. Paste / Fit";
-	    button2.justify = "center";
+  // PANEL1
+  // ======
+  var panel1 = group1.add("panel");
+      panel1.text = "Paste";
+      panel1.orientation = "column";
+      panel1.alignChildren = ["fill","top"];
+      panel1.spacing = 10;
+      panel1.margins = 25;
 
-	var divider1 = dialog.add("panel");
-	    divider1.alignment = "fill";
+  var pasteFill = panel1.add("button");
+      pasteFill.text = "1. Fill";
+      pasteFill.justify = "center";
 
-	var button3 = dialog.add("button", undefined, 'placeFill', {name: "ok3"});
-	    button3.text = "3. Place / Fill";
-	    button3.justify = "center";
-      button3.active = true;
+  var pasteFit = panel1.add("button");
+      pasteFit.text = "2. Fit";
+      pasteFit.justify = "center";
 
-	var button4 = dialog.add("button", undefined, 'placeFit', {name: "ok4"});
-	    button4.text = "4. Place / Fit";
-	    button4.justify = "center";
+  // PANEL2
+  // ======
+  var panel2 = group1.add("panel");
+      panel2.text = "Place";
+      panel2.orientation = "column";
+      panel2.alignChildren = ["fill","top"];
+      panel2.spacing = 10;
+      panel2.margins = 25;
 
-	// CUSTOM EVENTS
-  dialog.addEventListener ("keyup", function( key ) {
-    if ( key.keyName == 1 ) {
-      button1.onClick();
-    }
-    else if ( key.keyName == 2 ) {
-      button2.onClick();
-    }
-    else if ( key.keyName == 3 ) {
-      button3.onClick();
-    }
-    else if ( key.keyName == 4 ) {
-      button4.onClick();
-    }
-  });
-	
+  var placeFill = panel2.add("button");
+      placeFill.text = "3. Fill";
+      placeFill.justify = "center";
+
+  var placeFit = panel2.add("button");
+      placeFit.text = "4. Fit";
+      placeFit.justify = "center";
+
+  // PANEL3
+  // ======
+  var panel3 = dialog.add("panel");
+      panel3.text = "Options";
+      panel3.orientation = "column";
+      panel3.alignChildren = ["left","top"];
+      panel3.spacing = 10;
+      panel3.margins = 25;
+
+  var noUpsizing = panel3.add("checkbox");
+      noUpsizing.text = "Don't upsize past original size";
+
+  // PANEL4
+  // ======
+  var panel4 = dialog.add("panel");
+      panel4.text = "Info";
+      panel4.orientation = "column";
+      panel4.alignChildren = ["left","top"];
+      panel4.spacing = 10;
+      panel4.margins = 25;
+
+  var statictext1 = panel4.add("group");
+      statictext1.orientation = "column";
+      statictext1.alignChildren = ["left","center"];
+      statictext1.spacing = 0;
+
+      statictext1.add("statictext", undefined, "Use number keys as shortcuts ");
+      statictext1.add("statictext", undefined, "for each function. Space toggles");
+      statictext1.add("statictext", undefined, "the upsizing option.");
+  
+  // CUSTOM EVENTS
+  
+  noUpsizing.active = true;
+  noUpsizing.value = 1;
+  panel4.enabled = false; // So that it's there, but doesn't steal the thunder of anything else
+  
   // PASTE FILL
-  button1.onClick = function () {
+  pasteFill.onClick = function() {
     method = 'paste';
     fit_or_fill = 'fill';
+    noUpsize = noUpsizing.value;
     dialog.close();
   }
   // PASTE FIT
-  button2.onClick = function () {
+  pasteFit.onClick = function() {
     method = 'paste';
     fit_or_fill = 'fit';
+    noUpsize = noUpsizing.value;
     dialog.close();
   }
   // PLACE FILL
-  button3.onClick = function () {
+  placeFill.onClick = function( keyName ) {
     method = 'place';
     fit_or_fill = 'fill';
+    noUpsize = noUpsizing.value;
     dialog.close();
   }
   // PLACE FILL
-  button4.onClick = function () {
+  placeFit.onClick = function() {
     method = 'place';
     fit_or_fill = 'fit';
+    noUpsize = noUpsizing.value;
     dialog.close();
   }
   
+  dialog.addEventListener("keyup", function( key ) {
+    
+    if ( key.keyName == 1 ) {
+      pasteFill.onClick();
+    }
+    else if ( key.keyName == 2 ) {
+      pasteFit.onClick();
+    }
+    else if ( key.keyName == 3 ) {
+      placeFill.onClick( key.keyName );
+    }
+    else if ( key.keyName == 4 ) {
+      placeFit.onClick();
+    }
+    else if ( key.keyName == 'Space' ) {
+      noUpsizing.value = noUpsizing.value ? 0 : 1;
+    }
+    
+  });
+  
   dialog.show();
-	
+  
 }
