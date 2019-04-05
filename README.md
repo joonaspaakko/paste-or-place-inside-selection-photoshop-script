@@ -1,6 +1,6 @@
 # Photoshop Script: Paste or Place Inside Selection.jsx
 
-The scripts helps you paste or place images using fit and fill methods.
+The scripts helps you paste or place images using fit and fill methods. Example gifs below [usage](#usage).
 
 ![](readme-images/paste-or-place-inside-selection-dialog.png)
 
