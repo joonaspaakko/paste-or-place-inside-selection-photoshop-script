@@ -18,6 +18,10 @@ Both of these gifs have an outdated dialog, but otherwise it works just the same
 - You can paste vector graphics from Illustrator, but it's rasterized on import.
 
 ## Good to know...
-- Tested in PS CC 2019
+- Tested in PS CC 2020
+- Added a new feature that shows the current layer size in percentages by appending it to the layer name.
+    - The variable that controls this is called "changeLayerName"
+    - Default value: "always"
+    - Optional values: 'upsize prevented', 'never'
 - You should definitely set a shortcut to launch this script or otherwise it'll be too difficult to use frequently.
 - The old name was "Place Inside Selection.jsx".

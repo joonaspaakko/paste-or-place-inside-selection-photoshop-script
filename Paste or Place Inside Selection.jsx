@@ -1,8 +1,16 @@
 // Paste or Place Inside Selection.jsx
-// Version: 0.3.
+// Version: 0.4.
 // https://github.com/joonaspaakko/paste-or-place-inside-selection-photoshop-script
 
 // Changelog:
+
+// ********* V.0.4. *********
+// - Tested in PS CC 2020 (21.0.2)
+// - I fixed an issue where the script would sometimes fail to resize properly
+// - Added a new feature that shows the current layer size in percentages by appending it to the layer name.
+//    - The variable that controls this is called "changeLayerName"
+//    - Default value: "always"
+//    - Optional values: 'upsize prevented', 'never'
 
 // ********* V.0.3. *********
 // - Tested in PS CC 2019 (20.0.4)
@@ -31,6 +39,9 @@
 //   that if you place your image into a selection that is bigger than
 //   the image, it will ruthlessly upsize it the size of the selection.
 
+// OPTION!
+var changeLayerName = 'always' // values: 'always', 'upsize prevented', 'never'
+
 var method = null;
 var fit_or_fill = null;
 var noUpsize = false;
@@ -49,26 +60,26 @@ function init() {
   // Don't continue if user cancelled using ESC
   if ( method != null ) {
     
-    var image;
+    var imageSrc;
       
     // If PLACE was the chosen method, open up "browse" dialog to find a file to place.
     if ( method === 'place' ) {
-      image = File.openDialog( 'Open input image...' );
+      imageSrc = File.openDialog( 'Open input image...' );
     }
     // If PASTE was the chosen method, test clipboard...
     else {
-      image = "clipboard";
+      imageSrc = "clipboard";
       clipboardEmpty = testClipboard();
     }
     
     // Don't continue if user cancels the "browse" dialog or if the clipboard is empty
     if (
-      (image == "clipboard" && !clipboardEmpty) ||
-      (image != undefined && image != null && image != "clipboard")
+      (imageSrc == "clipboard" && !clipboardEmpty) ||
+      (imageSrc != undefined && imageSrc != null && imageSrc != "clipboard")
     ) {
-      main( image );
+      main( imageSrc );
     }
-    
+
     if ( clipboardEmpty ) {
       alert( 'Paste failed \nMake sure you have an image in your clipboard and try again...' );
     }
@@ -77,7 +88,7 @@ function init() {
   
 } // init();
 
-function main( image ) {
+function main( imageSrc ) {
   
   var doc = app.activeDocument,
 			activeLayer = doc.activeLayer,
@@ -97,14 +108,14 @@ function main( image ) {
     saveSelection( doc );
   }
   
-  if ( image === "clipboard" ) {
-    pasteIMG( doc, activeLayer, image, target.width, target.height );
+  if ( imageSrc === "clipboard" ) {
+    pasteIMG( doc, activeLayer, imageSrc, target.width, target.height );
   }
   else {
-    placeIMG( doc, activeLayer, image, target.width, target.height );
+    placeIMG( doc, activeLayer, imageSrc, target.width, target.height );
   }
   
-  resizeIMG( doc.activeLayer, target.width, target.height );
+  resizeIMG( doc.activeLayer, target.width, target.height, imageSrc );
   // align( [layerToAlign], [targetBounds] );
   align( doc.activeLayer, target.bounds );
   
@@ -198,7 +209,7 @@ function testClipboard() {
   
 }
 
-function pasteIMG( doc, activeLayer, image ) {
+function pasteIMG( doc, activeLayer, imageSrc ) {
   
   // Paste
   // =======================================================
@@ -220,7 +231,7 @@ function pasteIMG( doc, activeLayer, image ) {
   
 }
 
-function placeIMG( doc, activeLayer, image ) {
+function placeIMG( doc, activeLayer, imageSrc ) {
 
   // =======================================================
   var idPlc = charIDToTypeID( "Plc " );
@@ -228,7 +239,7 @@ function placeIMG( doc, activeLayer, image ) {
       var idIdnt = charIDToTypeID( "Idnt" );
       desc637.putInteger( idIdnt, 62 );
       var idnull = charIDToTypeID( "null" );
-      desc637.putPath( idnull, new File( image ) );
+      desc637.putPath( idnull, new File( imageSrc ) );
       var idFTcs = charIDToTypeID( "FTcs" );
       var idQCSt = charIDToTypeID( "QCSt" );
       var idQcsa = charIDToTypeID( "Qcsa" );
@@ -247,65 +258,135 @@ function placeIMG( doc, activeLayer, image ) {
   
 }
 
-function resizeIMG( imageLayer, target_width, target_height ) {
+// Preferences > General (Cmd+K) > [ ] Resize Image During Plage
+function resizeImageDuringPlace( optParam ) {
+  var descPreferences = new ActionDescriptor();
+  var ref = new ActionReference();
+  ref.putProperty( charIDToTypeID('Prpr'), charIDToTypeID('GnrP') );
+  ref.putEnumerated( charIDToTypeID('capp'), charIDToTypeID('Ordn'), charIDToTypeID('Trgt') );
+  descPreferences.putReference( charIDToTypeID('null'), ref );
+  var descSetting = new ActionDescriptor();
+  descSetting.putBoolean( stringIDToTypeID('resizePastePlace'), optParam );
+  descPreferences.putObject( charIDToTypeID('T   '), charIDToTypeID('GnrP'), descSetting );
+  executeAction( charIDToTypeID('setd'), descPreferences, DialogModes.NO );
+}
+
+// Preferences > General (Cmd+K) > [ ] Resize Image During Plage
+function getOptionResizeImageDuringPlace() {
+  var ref = new ActionReference();
+  ref.putEnumerated( charIDToTypeID("capp"), charIDToTypeID("Ordn"), charIDToTypeID("Trgt") );
+  var desc = executeActionGet(ref).getObjectValue( stringIDToTypeID('generalPreferences') );
+  return desc.getBoolean( stringIDToTypeID('resizePastePlace') ) == 0 ? false : true;
+}
+
+function resizeIMG( imageLayer, target_width, target_height, imageSrc ) {
   
   // Small padding to help with anti-aliasing
   target_width  = target_width + ( fit_or_fill === 'fill' ? 2 : 0 );
   target_height = target_height + ( fit_or_fill === 'fill' ? 2 : 0 );
+  var targetSize = [ target_width, target_height ];
   
-  // Round 1#
   var bounds       = imageLayer.boundsNoEffects;
   var image_width  = bounds[2].value - bounds[0].value;
   var image_height = bounds[3].value - bounds[1].value;
-  var newSize      = (100 / image_width) * target_width;
   
-  var longSideImage = image_width > image_height ? image_width : image_height;
-  var longSideTarget = target_width > target_height ? target_width : target_height;
-  
-  if ( noUpsize && longSideImage > longSideTarget || !noUpsize ) {
+  // This section normalizes placed images with a different resolution
+  if ( imageSrc !== "clipboard" ) {
     
-    imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
+    var dispDialogs = app.displayDialogs;
+    app.displayDialogs = DialogModes.NO;
     
-    // Round 2# ...if it is needed
-    var bounds       = imageLayer.boundsNoEffects;
-    var image_width  = bounds[2].value - bounds[0].value;
-    var image_height = bounds[3].value - bounds[1].value;
+    var documentIdBefore = app.activeDocument.id;
+    var documentsLengthBefore = app.documents.length;
+    // =======================================================
+    var idOpn = charIDToTypeID( "Opn " );
+    var desc379 = new ActionDescriptor();
+    var iddontRecord = stringIDToTypeID( "dontRecord" );
+    desc379.putBoolean( iddontRecord, false );
+    var idforceNotify = stringIDToTypeID( "forceNotify" );
+    desc379.putBoolean( idforceNotify, false );
+    var idnull = charIDToTypeID( "null" );
+    desc379.putPath( idnull, new File( imageSrc ) );
+    var idDocI = charIDToTypeID( "DocI" );
+    desc379.putInteger( idDocI, 430 );
+    executeAction( idOpn, desc379, DialogModes.NO );
+    // Ended up using the code above that opens the file since that suppresses dialogs...
+    // executeAction( stringIDToTypeID( "placedLayerEditContents" ), new ActionDescriptor(), DialogModes.NO );
+    var tempDoc = app.activeDocument;
+    var tempDocSize = [ tempDoc.width.as('px'), tempDoc.height.as('px')];
     
-    if (
-      (fit_or_fill === 'fill' && image_height < target_height) ||
-      (fit_or_fill === 'fit' && image_height > target_height)
-    ) {
-      var newSize = (target_height / image_height) * 100;
-      imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
+    
+    var documentIdAfter = app.activeDocument.id;
+    var documentsLengthAfter = app.documents.length;
+    var fileAlreadyOpen = documentsLengthBefore === documentsLengthAfter;
+    if ( fileAlreadyOpen ) {
+      activateDocumentByID( documentIdBefore );
+    }
+    else  {
+      app.activeDocument.close( SaveOptions.DONOTSAVECHANGES );
     }
     
-  }
-  
-  if ( !noUpsize && longSideImage < longSideTarget ) {
+    app.displayDialogs = dispDialogs;
     
-    // COLOR RED
-		// =======================================================
-		var idsetd = charIDToTypeID( "setd" );
-		    var desc98 = new ActionDescriptor();
-		    var idnull = charIDToTypeID( "null" );
-		        var ref30 = new ActionReference();
-		        var idLyr = charIDToTypeID( "Lyr " );
-		        var idOrdn = charIDToTypeID( "Ordn" );
-		        var idTrgt = charIDToTypeID( "Trgt" );
-		        ref30.putEnumerated( idLyr, idOrdn, idTrgt );
-		    desc98.putReference( idnull, ref30 );
-		    var idT = charIDToTypeID( "T   " );
-		        var desc99 = new ActionDescriptor();
-		        var idClr = charIDToTypeID( "Clr " );
-		        var idClr = charIDToTypeID( "Clr " );
-		        var idRd = charIDToTypeID( "Rd  " );
-		        desc99.putEnumerated( idClr, idClr, idRd );
-		    var idLyr = charIDToTypeID( "Lyr " );
-		    desc98.putObject( idT, idLyr, desc99 );
-		executeAction( idsetd, desc98, DialogModes.NO );
+    var bounds       = app.activeDocument.activeLayer.boundsNoEffects;
+    var placedWidth  = bounds[2].value - bounds[0].value;
+    var placedHeight = bounds[3].value - bounds[1].value;
+    
+    var eqSize = calculateNewSize( [placedWidth, placedHeight], tempDocSize).percentage[ fit_or_fill ];
+    var placedPercentage = calculateNewSize( [image_width, image_height], targetSize).percentage[ fit_or_fill ];
+    imageLayer.resize( eqSize, eqSize, AnchorPosition.MIDDLECENTER );
+    image_width = tempDocSize[0];
+    image_height = tempDocSize[1];
     
   }
   
+  var imageSize = [ image_width, image_height ];
+  var newSize   = calculateNewSize(imageSize, targetSize).percentage[ fit_or_fill ];
+  var imageOverflowsTarget = newSize <= 100;
+  if ( noUpsize && imageOverflowsTarget || !noUpsize ) {
+    imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
+    if ( changeLayerName === 'always' ) {
+      renameActiveLayer(' (Size: ~'+ Math.round( (placedPercentage || newSize) ) +'%)');
+    }
+  }
+  else {
+    if ( changeLayerName && changeLayerName !== 'never' ) {
+      renameActiveLayer( ' (Upsize prevented: ~'+ Math.round( (placedPercentage || newSize) ) +'%)' );
+    }
+  }
+  
+}
+
+function activateDocumentByID( docId ) {
+  var ref = new ActionReference();
+  var desc = new ActionDescriptor();
+  ref.putIdentifier(charIDToTypeID('Dcmn'), docId);
+  desc.putReference(charIDToTypeID('null'), ref);
+  try { executeAction( charIDToTypeID( "slct" ), desc, DialogModes.NO ); } catch(e) {}
+}
+
+function renameActiveLayer( newName ) {
+  
+    var activeLayer = app.activeDocument.activeLayer;
+    activeLayer.name = activeLayer.name + newName;
+}
+
+function calculateNewSize( inputSize, targetSize ) {
+  function mathMax( array ) { return array[0] > array[1] ? array[0] : array[1]; }
+  function mathMin( array ) { return array[0] < array[1] ? array[0] : array[1]; }
+  var sizeArray = [ targetSize[0] / inputSize[0], targetSize[1] / inputSize[1] ];
+  var ratioFit  = mathMin( sizeArray );
+  var ratioFill = mathMax( sizeArray );
+  return {
+    pixels: {
+      fit:  { width: inputSize[0]*ratioFit,  height: inputSize[1]*ratioFit  },
+      fill: { width: inputSize[0]*ratioFill, height: inputSize[1]*ratioFill }
+    },
+    percentage: {
+      fit:  (100 / inputSize[0]) * (inputSize[0]*ratioFit),
+      fill: (100 / inputSize[0]) * (inputSize[0]*ratioFill)
+    }
+  };
 }
 
 function getTargetBounds( doc, activeLayer ) {
