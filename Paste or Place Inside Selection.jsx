@@ -1,8 +1,13 @@
 // Paste or Place Inside Selection.jsx
-// Version: 0.4.
+// Version: 0.5.
 // https://github.com/joonaspaakko/paste-or-place-inside-selection-photoshop-script
 
 // Changelog:
+
+// ********* V.0.5. *********
+// - Tested in PS CC 2020 (21.0.2)
+// - Fixed and issue that would cause the layer name suffix percentage to be a little off when placing images. Forgot to initiate some code in the last release.
+// - Made a small change where the layer name suffix percentage doesn't get the tilde: ~ character if the image size doesn't change.
 
 // ********* V.0.4. *********
 // - Tested in PS CC 2020 (21.0.2)
@@ -232,7 +237,11 @@ function pasteIMG( doc, activeLayer, imageSrc ) {
 }
 
 function placeIMG( doc, activeLayer, imageSrc ) {
-
+  
+  // Makes sure the placed image size is not constrained by the document.
+  var resizeImageOnPlaceSetting = getOptionResizeImageDuringPlace();
+  resizeImageDuringPlace(false);
+  
   // =======================================================
   var idPlc = charIDToTypeID( "Plc " );
       var desc637 = new ActionDescriptor();
@@ -255,6 +264,8 @@ function placeIMG( doc, activeLayer, imageSrc ) {
       var idOfst = charIDToTypeID( "Ofst" );
       desc637.putObject( idOfst, idOfst, desc638 );
   executeAction( idPlc, desc637, DialogModes.NO );
+  
+  resizeImageDuringPlace( resizeImageOnPlaceSetting );
   
 }
 
@@ -343,15 +354,24 @@ function resizeIMG( imageLayer, target_width, target_height, imageSrc ) {
   var imageSize = [ image_width, image_height ];
   var newSize   = calculateNewSize(imageSize, targetSize).percentage[ fit_or_fill ];
   var imageOverflowsTarget = newSize <= 100;
+  
+  var percentageString = '';
+  if ( placedPercentage ) {
+    percentageString = placedPercentage === 100 ? 100 : '~'+Math.round( placedPercentage );
+  }
+  else {
+    percentageString = newSize === 100 ? 100 : '~'+Math.round( newSize );
+  }
+  
   if ( noUpsize && imageOverflowsTarget || !noUpsize ) {
     imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
     if ( changeLayerName === 'always' ) {
-      renameActiveLayer(' (Size: ~'+ Math.round( (placedPercentage || newSize) ) +'%)');
+      renameActiveLayer(' (Size: '+ percentageString +'%)');
     }
   }
   else {
     if ( changeLayerName && changeLayerName !== 'never' ) {
-      renameActiveLayer( ' (Upsize prevented: ~'+ Math.round( (placedPercentage || newSize) ) +'%)' );
+      renameActiveLayer( ' (Upsize prevented: '+ percentageString +'%)' );
     }
   }
   
