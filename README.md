@@ -15,13 +15,12 @@ The script has two starting points for different situations:
 Both of these gifs have an outdated dialog, but otherwise it works just the same. I should make new gifs...
 
 ## Known issues
-- You can paste vector graphics from Illustrator, but they are rasterized on import.
+- If the base layer of a clipping mask is hidden, the script will fail. It's related to detecting the "bounds" of the clipping mask. This could be improved, but I don't think that is much of an issue, so I have no plans to fix it. The active layer can be hidden as long as it's not already in a clipping mask though.
 
 ## Good to know...
-- Tested in PS CC 2020
-- Added a new feature that shows the current layer size in percentages by appending it to the layer name.
-  - The variable that controls this is called "changeLayerName"
-  - Default value: "always"
+- Only tested in PS CC
+- There is a feature where the current layer size (in percentages) is appended to the layer name.
+  - The variable that controls this is called "changeLayerName". Default value: "always".
   - Optional values: 'upsize prevented', 'never'
 - You should definitely set a shortcut to launch this script or otherwise it'll be too difficult to use frequently.
 - The old name was "Place Inside Selection.jsx".

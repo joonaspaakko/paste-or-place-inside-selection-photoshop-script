@@ -1,8 +1,18 @@
 // Paste or Place Inside Selection.jsx
-// Version: 0.5.
+// Version: 0.6.
 // https://github.com/joonaspaakko/paste-or-place-inside-selection-photoshop-script
 
 // Changelog:
+
+
+// ********* V.0.6. *********
+// - Tested in PS CC 2019 (20.0.4)
+// - Fixed an issue with anti-aliasing.
+// - Fixed an issue with the clipping mask detection where sometimes you'd end up with with an extra empty layer when placing images.
+// - Improved the handling SVG (vector):
+//   1. Vector images are no longer rasterized. Works with both pasted and placed vector iamges.
+//   2. "Prevent upsizing" option is ignored if the image is vector. Works with both pasted and placed vector iamges.
+//   3. Background is trimmed from placed SVG images. Well not really, but the transparent whitespace is ignored when resizing and aligning.
 
 // ********* V.0.5. *********
 // - Tested in PS CC 2020 (21.0.2)
@@ -47,15 +57,18 @@
 // OPTION!
 var changeLayerName = 'always' // values: 'always', 'upsize prevented', 'never'
 
+// Global variables...
 var method = null;
 var fit_or_fill = null;
 var noUpsize = false;
 var clipboardEmpty = false;
 var hasSelection = selectionExists();
 var tempChannelName = 'Temp Channel - 0123456789';
+var clipTempLayer = null;
+var isVector = false;
 
 // Writes one history state....
-app.activeDocument.suspendHistory("Place Inside Selection.jsx", "init()");
+app.activeDocument.suspendHistory("Paste or Place Inside Selection.jsx", "init()");
 
 function init() {
   
@@ -118,6 +131,7 @@ function main( imageSrc ) {
   }
   else {
     placeIMG( doc, activeLayer, imageSrc, target.width, target.height );
+    if ( clipTempLayer ) clipTempLayer.remove();
   }
   
   resizeIMG( doc.activeLayer, target.width, target.height, imageSrc );
@@ -154,7 +168,7 @@ function main( imageSrc ) {
   // When there is no selection, a clipping mask is used and both layers are selected.
   else {
     
-    // When there aren't any existing layers in a clipping mask:
+    // A new clippingmask is created:
     if ( !doc.activeLayer.grouped ) doc.activeLayer.grouped = true;
     
   }
@@ -196,14 +210,14 @@ function testClipboard() {
     // Paste
     // =======================================================
     var idpast = charIDToTypeID( "past" );
-        var desc1408 = new ActionDescriptor();
-        var idAntA = charIDToTypeID( "AntA" );
-        var idAnnt = charIDToTypeID( "Annt" );
-        var idAnno = charIDToTypeID( "Anno" );
-        desc1408.putEnumerated( idAntA, idAnnt, idAnno );
-        var idAs = charIDToTypeID( "As  " );
-        var idPxel = charIDToTypeID( "Pxel" );
-        desc1408.putClass( idAs, idPxel );
+      var desc1408 = new ActionDescriptor();
+      var idAntA = charIDToTypeID( "AntA" );
+      var idAnnt = charIDToTypeID( "Annt" );
+      var idAnno = charIDToTypeID( "Anno" );
+      desc1408.putEnumerated( idAntA, idAnnt, idAnno );
+      var idAs = charIDToTypeID( "As  " );
+      var idPxel = charIDToTypeID( "Pxel" );
+      desc1408.putClass( idAs, idPxel );
     executeAction( idpast, desc1408, DialogModes.NO );
     
   } catch(e) { cEmpty = true; }
@@ -219,19 +233,39 @@ function pasteIMG( doc, activeLayer, imageSrc ) {
   // Paste
   // =======================================================
   var idpast = charIDToTypeID( "past" );
-      var desc1408 = new ActionDescriptor();
-      var idAntA = charIDToTypeID( "AntA" );
-      var idAnnt = charIDToTypeID( "Annt" );
-      var idAnno = charIDToTypeID( "Anno" );
-      desc1408.putEnumerated( idAntA, idAnnt, idAnno );
-      var idAs = charIDToTypeID( "As  " );
-      var idPxel = charIDToTypeID( "Pxel" );
-      desc1408.putClass( idAs, idPxel );
-  executeAction( idpast, desc1408, DialogModes.NO );
+    var desc273 = new ActionDescriptor();
+    var idAntA = charIDToTypeID( "AntA" );
+    desc273.putBoolean( idAntA, true );
+    var idAs = charIDToTypeID( "As  " );
+    var idsmartObject = stringIDToTypeID( "smartObject" );
+    desc273.putClass( idAs, idsmartObject );
+    var idpushToDesignLibraries = stringIDToTypeID( "pushToDesignLibraries" );
+    desc273.putBoolean( idpushToDesignLibraries, false );
+    var idFTcs = charIDToTypeID( "FTcs" );
+    var idQCSt = charIDToTypeID( "QCSt" );
+    var idQcsa = charIDToTypeID( "Qcsa" );
+    desc273.putEnumerated( idFTcs, idQCSt, idQcsa );
+    var idOfst = charIDToTypeID( "Ofst" );
+        var desc274 = new ActionDescriptor();
+        var idHrzn = charIDToTypeID( "Hrzn" );
+        var idPxl = charIDToTypeID( "#Pxl" );
+        desc274.putUnitDouble( idHrzn, idPxl, 0.000000 );
+        var idVrtc = charIDToTypeID( "Vrtc" );
+        var idPxl = charIDToTypeID( "#Pxl" );
+        desc274.putUnitDouble( idVrtc, idPxl, 0.000000 );
+    var idOfst = charIDToTypeID( "Ofst" );
+    desc273.putObject( idOfst, idOfst, desc274 );
+  executeAction( idpast, desc273, DialogModes.NO );
   
-  // Convert pasted image into a Smart Object
-  var idnewPlacedLayer = stringIDToTypeID( "newPlacedLayer" );
-  executeAction( idnewPlacedLayer, undefined, DialogModes.NO );
+  if ( doc.activeLayer.kind !== LayerKind.SMARTOBJECT ) {
+    // Convert pasted image into a Smart Object
+    var idnewPlacedLayer = stringIDToTypeID( "newPlacedLayer" );
+    executeAction( idnewPlacedLayer, undefined, DialogModes.NO );
+  }
+  else {
+    isVector = true;
+  }
+  
   doc.activeLayer.name = "[Pasted Image]";
   
 }
@@ -242,28 +276,31 @@ function placeIMG( doc, activeLayer, imageSrc ) {
   var resizeImageOnPlaceSetting = getOptionResizeImageDuringPlace();
   resizeImageDuringPlace(false);
   
+  // Place
   // =======================================================
   var idPlc = charIDToTypeID( "Plc " );
-      var desc637 = new ActionDescriptor();
+      var desc394 = new ActionDescriptor();
       var idIdnt = charIDToTypeID( "Idnt" );
-      desc637.putInteger( idIdnt, 62 );
+      desc394.putInteger( idIdnt, 48 );
       var idnull = charIDToTypeID( "null" );
-      desc637.putPath( idnull, new File( imageSrc ) );
+      desc394.putPath( idnull, new File( imageSrc ) );
       var idFTcs = charIDToTypeID( "FTcs" );
       var idQCSt = charIDToTypeID( "QCSt" );
       var idQcsa = charIDToTypeID( "Qcsa" );
-      desc637.putEnumerated( idFTcs, idQCSt, idQcsa );
+      desc394.putEnumerated( idFTcs, idQCSt, idQcsa );
       var idOfst = charIDToTypeID( "Ofst" );
-          var desc638 = new ActionDescriptor();
+          var desc395 = new ActionDescriptor();
           var idHrzn = charIDToTypeID( "Hrzn" );
           var idPxl = charIDToTypeID( "#Pxl" );
-          desc638.putUnitDouble( idHrzn, idPxl, 0.000000 );
+          desc395.putUnitDouble( idHrzn, idPxl, 0.000000 );
           var idVrtc = charIDToTypeID( "Vrtc" );
           var idPxl = charIDToTypeID( "#Pxl" );
-          desc638.putUnitDouble( idVrtc, idPxl, -0.000000 );
+          desc395.putUnitDouble( idVrtc, idPxl, 0.000000 );
       var idOfst = charIDToTypeID( "Ofst" );
-      desc637.putObject( idOfst, idOfst, desc638 );
-  executeAction( idPlc, desc637, DialogModes.NO );
+      desc394.putObject( idOfst, idOfst, desc395 );
+      var idAntA = charIDToTypeID( "AntA" );
+      desc394.putBoolean( idAntA, true );
+  executeAction( idPlc, desc394, DialogModes.NO );
   
   resizeImageDuringPlace( resizeImageOnPlaceSetting );
   
@@ -309,6 +346,7 @@ function resizeIMG( imageLayer, target_width, target_height, imageSrc ) {
     
     var documentIdBefore = app.activeDocument.id;
     var documentsLengthBefore = app.documents.length;
+    // Open the document separately
     // =======================================================
     var idOpn = charIDToTypeID( "Opn " );
     var desc379 = new ActionDescriptor();
@@ -321,15 +359,20 @@ function resizeIMG( imageLayer, target_width, target_height, imageSrc ) {
     var idDocI = charIDToTypeID( "DocI" );
     desc379.putInteger( idDocI, 430 );
     executeAction( idOpn, desc379, DialogModes.NO );
-    // Ended up using the code above that opens the file since that suppresses dialogs...
-    // executeAction( stringIDToTypeID( "placedLayerEditContents" ), new ActionDescriptor(), DialogModes.NO );
+    
     var tempDoc = app.activeDocument;
+    if ( imageSrc.fullName.split('.').pop() === 'svg' ) {
+      tempDoc.trim( TrimType.TRANSPARENT );
+      isVector = true;
+    }
+    
     var tempDocSize = [ tempDoc.width.as('px'), tempDoc.height.as('px')];
     
     
     var documentIdAfter = app.activeDocument.id;
     var documentsLengthAfter = app.documents.length;
     var fileAlreadyOpen = documentsLengthBefore === documentsLengthAfter;
+    
     if ( fileAlreadyOpen ) {
       activateDocumentByID( documentIdBefore );
     }
@@ -362,6 +405,8 @@ function resizeIMG( imageLayer, target_width, target_height, imageSrc ) {
   else {
     percentageString = newSize === 100 ? 100 : '~'+Math.round( newSize );
   }
+  
+  if ( isVector ) noUpsize = false;
   
   if ( noUpsize && imageOverflowsTarget || !noUpsize ) {
     imageLayer.resize( newSize, newSize, AnchorPosition.MIDDLECENTER );
@@ -499,6 +544,7 @@ function findClippingMask( doc, layer ) {
     doc.activeLayer = tempGroup;
 		app.runMenuItem( stringIDToTypeID('ungroupLayersEvent') );
     doc.activeLayer = newLayer;
+    if ( method === 'place' ) clipTempLayer = newLayer;
 
     return clippingMaskBase;
 		
@@ -522,6 +568,7 @@ function findClippingMask( doc, layer ) {
       doc.activeLayer = tempGroup;
 			app.runMenuItem( stringIDToTypeID('ungroupLayersEvent') );
 			doc.activeLayer = newLayer;
+      if ( method === 'place' ) clipTempLayer = newLayer;
 			
 			return clippingMaskBase;
 			
