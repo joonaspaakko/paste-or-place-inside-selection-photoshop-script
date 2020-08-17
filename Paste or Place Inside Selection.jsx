@@ -1,17 +1,21 @@
 // Paste or Place Inside Selection.jsx
-// Version: 0.6.
+// Version: 0.7.
 // https://github.com/joonaspaakko/paste-or-place-inside-selection-photoshop-script
 
 // Changelog:
 
+// ********* V.0.6. *********
+// - Tested in PS CC 2019 (20.0.4)
+// - Fixed an issue where you would get an error when trying to place image using the active layer method sometimes
+// - Updated gifs...
 
 // ********* V.0.6. *********
 // - Tested in PS CC 2019 (20.0.4)
 // - Fixed an issue with anti-aliasing.
 // - Fixed an issue with the clipping mask detection where sometimes you'd end up with with an extra empty layer when placing images.
 // - Improved the handling SVG (vector):
-//   1. Vector images are no longer rasterized. Works with both pasted and placed vector iamges.
-//   2. "Prevent upsizing" option is ignored if the image is vector. Works with both pasted and placed vector iamges.
+//   1. Vector images are no longer rasterized. Works with both pasted and placed vector images.
+//   2. "Prevent upsizing" option is ignored if the image is vector. Works with both pasted and placed vector images.
 //   3. Background is trimmed from placed SVG images. Well not really, but the transparent whitespace is ignored when resizing and aligning.
 
 // ********* V.0.5. *********
@@ -66,6 +70,7 @@ var hasSelection = selectionExists();
 var tempChannelName = 'Temp Channel - 0123456789';
 var clipTempLayer = null;
 var isVector = false;
+var activeLayerVisible = app.activeDocument.activeLayer.visible;
 
 // Writes one history state....
 app.activeDocument.suspendHistory("Paste or Place Inside Selection.jsx", "init()");
@@ -131,7 +136,7 @@ function main( imageSrc ) {
   }
   else {
     placeIMG( doc, activeLayer, imageSrc, target.width, target.height );
-    if ( clipTempLayer ) clipTempLayer.remove();
+    if ( clipTempLayer ) try { clipTempLayer.name; clipTempLayer.remove(); } catch(e) {} 
   }
   
   resizeIMG( doc.activeLayer, target.width, target.height, imageSrc );
@@ -180,6 +185,7 @@ function main( imageSrc ) {
   
   // Reset ruler units
   app.preferences.rulerUnits = rulerUnits;
+  activeLayer.visible = activeLayerVisible;
   
 } // main();
 
@@ -504,14 +510,14 @@ function align( imageLayer, targetBounds ) {
     },
   };
   
-  var image_width = image.offset.right - image.offset.left;
+  var image_width  = image.offset.right  - image.offset.left;
   var image_height = image.offset.bottom - image.offset.top;
   
-  var target_width = target.offset.right - target.offset.left;
+  var target_width  = target.offset.right  - target.offset.left;
   var target_height = target.offset.bottom - target.offset.top;
   
-  var translateX = target.offset.left - image.offset.left - ( image_width/2 ) + ( target_width/2 );
-  var translateY = target.offset.top - image.offset.top - ( image_height/2 ) + ( target_height/2 );
+  var translateX = target.offset.left - image.offset.left - ( image_width/2  ) + ( target_width/2  );
+  var translateY = target.offset.top  - image.offset.top  - ( image_height/2 ) + ( target_height/2 );
   imageLayer.translate( translateX, translateY );
   
 }
@@ -531,16 +537,15 @@ function findClippingMask( doc, layer ) {
   // Layer is in a clipping mask...
 	if ( layer.grouped ) {
 		
-		while ( doc.activeLayer.grouped ) {
-      selectLayer('below');
-    }
+		while ( doc.activeLayer.grouped ) { selectLayer('below'); }
 		var clippingMaskBase = doc.activeLayer;
     
+    // When the clipping mask base is grouped, all layers involved in the clipping mask are grouped...
     app.runMenuItem( stringIDToTypeID('groupLayersEvent') );
     var tempGroup = doc.activeLayer;
     var newLayer = doc.artLayers.add();
     newLayer.move( tempGroup, ElementPlacement.INSIDE);
-    newLayer.grouped = true;
+    newLayer.grouped = true; // Make the empty layer part of the clipping mask
     doc.activeLayer = tempGroup;
 		app.runMenuItem( stringIDToTypeID('ungroupLayersEvent') );
     doc.activeLayer = newLayer;
@@ -552,6 +557,8 @@ function findClippingMask( doc, layer ) {
   // Layer is not in a clipping mask... but it could still be the base layer of a clipping mask
 	else if ( !layer.grouped ) {
 		
+    // When the clipping mask base is grouped, all layers involved in the clipping mask are grouped...
+    // Here we still don't know if this is the clipping mask base though...
     app.runMenuItem( stringIDToTypeID('groupLayersEvent') );
 		
 		var tempGroup = doc.activeLayer,
@@ -564,7 +571,7 @@ function findClippingMask( doc, layer ) {
 			var clippingMaskBase = tempGroupLayers[ tempGroupLayersLength - 1 ];
 			var newLayer = doc.artLayers.add();
 			newLayer.move( tempGroup, ElementPlacement.INSIDE);
-      newLayer.grouped = true;
+      newLayer.grouped = true; // Make the empty layer part of the clipping mask
       doc.activeLayer = tempGroup;
 			app.runMenuItem( stringIDToTypeID('ungroupLayersEvent') );
 			doc.activeLayer = newLayer;
@@ -575,7 +582,7 @@ function findClippingMask( doc, layer ) {
 		}
     // False alarm... No clipping masks here.
 		else {
-			app.runMenuItem( stringIDToTypeID('ungroupLayersEvent') );
+      app.runMenuItem( stringIDToTypeID('ungroupLayersEvent') );
 			return false;
 		}
 		
